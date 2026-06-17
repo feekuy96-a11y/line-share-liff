@@ -6,12 +6,56 @@
   <title>ระบบแชร์การ์ดใบลา (LINE LIFF)</title>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    body { background: #0f172a; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; text-align: center; box-sizing: border-box; }
-    .card { background: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 1px solid #334155; max-width: 350px; width: 100%; }
-    .progress-container { width: 100%; height: 8px; background-color: rgba(255, 255, 255, 0.1); border-radius: 4px; margin-bottom: 10px; overflow: hidden; position: relative; }
-    .progress-bar { height: 100%; background-color: #10b981; width: 0%; border-radius: 4px; transition: width 0.3s ease-out; }
-    .percent { font-size: 24px; font-weight: bold; color: #ffffff; margin-bottom: 20px; }
-    #status { font-size: 16px; color: #cbd5e1; line-height: 1.5; }
+    body { 
+      background: #0f172a; 
+      color: white; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+      align-items: center; 
+      height: 100vh; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      text-align: center; 
+      box-sizing: border-box;
+    }
+    .card {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      border: 1px solid #334155;
+      max-width: 350px;
+      width: 100%;
+    }
+    .progress-container {
+      width: 100%;
+      height: 8px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar {
+      height: 100%;
+      background-color: #10b981;
+      width: 0%;
+      border-radius: 4px;
+      transition: width 0.3s ease-out;
+    }
+    .percent {
+      font-size: 24px;
+      font-weight: bold;
+      color: #ffffff;
+      margin-bottom: 20px;
+    }
+    #status {
+      font-size: 16px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
@@ -25,18 +69,22 @@
   </div>
 
   <script>
+    // 📌 ข้อมูลคอนฟิกูเรชันระบบแชร์ของคุณ
     const LIFF_ID = "2008126991-vMM9VdAj"; 
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyLI8zoe8eU72byxcsj2zRQjq-Td2EUK-WNJxCVBbAwDUX_CYyDPaptR0P4aZJrb7nb/exec";
 
+    // 🌟 องค์ประกอบ HTML ที่ต้องใช้
     const progressBar = document.getElementById('progress-bar');
     const percentText = document.getElementById('percent');
     const statusText = document.getElementById('status');
 
+    // 🌟 ตัวแปรควบคุมการจำลอง Progress
     let progressInterval;
     let currentPercent = 0;
 
+    // 🌟 ฟังก์ชันจำลองความคืบหน้าโหลด (จาก 0 ถึง ~95%)
     function startProgressSimulation() {
-      clearInterval(progressInterval); 
+      clearInterval(progressInterval); // หยุดอันเก่าก่อน
       currentPercent = 0;
       percentText.innerText = "0%";
       progressBar.style.width = "0%";
@@ -51,6 +99,7 @@
       }, 200); 
     }
 
+    // 🌟 ฟังก์ชันเมื่อโหลดสำเร็จหรือเกิดข้อผิดพลาด (กระโดดไป 100% หรือหยุด)
     function finishProgress(isSuccess) {
       clearInterval(progressInterval); 
       if (isSuccess) {
@@ -64,16 +113,20 @@
 
     async function main() {
       try {
+        // 1. เริ่มต้นระบบ LIFF
         await liff.init({ liffId: LIFF_ID });
         
+        // 2. ตรวจสอบและบังคับล็อกอิน 
         if (!liff.isLoggedIn()) {
           liff.login({ redirectUri: window.location.href });
           return;
         }
 
+        // 3. แกะรหัสใบลา (leaveId) จาก URL
         const urlParams = new URLSearchParams(window.location.search);
         let leaveId = urlParams.get('leaveId');
         
+        // ดักจับกรณีที่ LINE แอบซ่อนพารามิเตอร์ไว้ใน liff.state 
         if (!leaveId && urlParams.get('liff.state')) {
            const stateParams = new URLSearchParams(urlParams.get('liff.state').substring(1));
            leaveId = stateParams.get('leaveId') || stateParams.get('?leaveId');
@@ -89,6 +142,7 @@
         startProgressSimulation();
         statusText.innerText = "กำลังดึงข้อมูลใบลาจากระบบ...";
 
+        // 4. ยิง Fetch API ไปเรียกข้อมูล
         const response = await fetch(`${GAS_API_URL}?action=api_get_leave&leaveId=${leaveId}`);
         const result = await response.json();
         
@@ -103,15 +157,24 @@
       } catch (err) {
         finishProgress(false); 
         showError("เชื่อมต่อฐานข้อมูลล้มเหลว หรือเกิดข้อผิดพลาดในการรันระบบ");
+        console.error(err);
       }
     }
 
+    // 5. ประกอบโครงสร้าง Flex Message
     async function shareFlex(data) {
       statusText.innerText = "กำลังเปิดหน้าต่างเลือกแชทเพื่อส่งต่อ...";
       
       let hc = data.status === 'อนุมัติ' ? "#10b981" : (data.status === 'ไม่อนุมัติ' ? "#ef4444" : (data.status === 'ยกเลิกแล้ว' ? "#64748b" : "#f59e0b"));
       let eventName = data.status === "รอพิจารณา" ? "ยื่นคำร้อง" : (data.status === "ยกเลิกแล้ว" ? "ยกเลิกคำร้อง" : "แจ้งผลการพิจารณา");
       
+      // 🌟 คำนวณสถิติ
+      let statPast = parseFloat(data.statPast || 0);
+      let statReq = parseFloat(data.days || 0);
+      let statTotal = statPast + statReq;
+      let statRemain = parseFloat(data.statRemain || 0);
+
+      // 🌟 จัดการฟอร์แมตเวลา
       const formatThaiTime = (ts) => {
         let d = ts ? new Date(ts.replace(" ", "T")) : new Date(); if(isNaN(d)) d = new Date();
         const tM = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
@@ -119,34 +182,43 @@
       };
 
       let timeFooterText = "";
-      if (data.status === "รอพิจารณา") timeFooterText = `ยื่นคำขอเมื่อ: ${formatThaiTime(data.actionTime)}`;
-      else if (data.status === "อนุมัติ") timeFooterText = `อนุมัติคำขอเมื่อ: ${formatThaiTime(data.actionTime)}`;
-      else if (data.status === "ไม่อนุมัติ") timeFooterText = `ไม่อนุมัติคำขอเมื่อ: ${formatThaiTime(data.actionTime)}`;
-      else timeFooterText = `อัปเดตสถานะเมื่อ: ${formatThaiTime(data.actionTime)}`;
+      let actionTimeStr = data.actionTime || "";
+      if (data.status === "รอพิจารณา") timeFooterText = `ยื่นคำขอเมื่อ: ${formatThaiTime(actionTimeStr)}`;
+      else if (data.status === "อนุมัติ") timeFooterText = `อนุมัติคำขอเมื่อ: ${formatThaiTime(actionTimeStr)}`;
+      else if (data.status === "ไม่อนุมัติ") timeFooterText = `ไม่อนุมัติคำขอเมื่อ: ${formatThaiTime(actionTimeStr)}`;
+      else timeFooterText = `อัปเดตสถานะเมื่อ: ${formatThaiTime(actionTimeStr)}`;
 
+      // 🌟 สร้างโครงสร้างกล่องข้อความ
       let bodyContents = [
         { type: "text", text: "รายละเอียดการดำเนินการ", weight: "bold", size: "md", color: "#111827" },
         { type: "separator", color: "#e5e7eb", margin: "md" },
         { type: "box", layout: "vertical", spacing: "sm", margin: "md", contents: [
             { type: "box", layout: "baseline", contents: [{ type: "text", text: "ผู้ขอลา", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.empName || "-"), weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
             { type: "box", layout: "baseline", contents: [{ type: "text", text: "ประเภท", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.type || "-"), weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
-            { type: "box", layout: "baseline", contents: [{ type: "text", text: "วันที่", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: `${data.start} - ${data.end} (${data.days || 0} วัน)`, weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
+            { type: "box", layout: "baseline", contents: [{ type: "text", text: "วันที่", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: `${data.start} - ${data.end}\n(${data.days || 0} วัน)`, weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
             { type: "box", layout: "baseline", contents: [{ type: "text", text: "เหตุผล", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.reason || "-"), color: "#1f2937", size: "sm", flex: 5, wrap: true }] }
         ]}
       ];
 
       if (data.status === 'ไม่อนุมัติ' && data.rejectReason) {
-        bodyContents.push({ type: "box", layout: "baseline", margin: "sm", contents: [{ type: "text", text: "หมายเหตุ", color: "#ef4444", size: "sm", flex: 2, weight: "bold" }, { type: "text", text: String(data.rejectReason), size: "sm", flex: 5, wrap: true, color: "#ef4444", weight: "bold" }] });
+        bodyContents[2].contents.push({
+          type: "box", layout: "baseline", margin: "sm", contents: [
+            { type: "text", text: "หมายเหตุ", color: "#ef4444", size: "sm", flex: 2, weight: "bold" },
+            { type: "text", text: String(data.rejectReason), size: "sm", flex: 5, wrap: true, color: "#ef4444", weight: "bold" }
+          ]
+        });
       }
 
       bodyContents.push({ type: "separator", color: "#e5e7eb", margin: "lg" });
       bodyContents.push({ type: "text", text: "📊 สถิติการลา (ปีงบประมาณนี้)", weight: "bold", size: "xs", color: "#3b82f6", margin: "md" });
-      bodyContents.push({ type: "box", layout: "vertical", spacing: "xs", margin: "sm", contents: [
-          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "ลามาแล้ว", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${data.statPast || 0} วัน`, size: "xs", color: "#64748b", align: "end", flex: 1, weight: "bold" }]},
-          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "ลาครั้งนี้", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${data.days || 0} วัน`, size: "xs", color: "#3b82f6", align: "end", flex: 1, weight: "bold" }]},
-          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "รวมเป็น", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${(data.statPast || 0) + (data.days || 0)} วัน`, size: "xs", color: "#f59e0b", align: "end", flex: 1, weight: "bold" }]},
-          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "คงเหลือ", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${data.statRemain || 0} วัน`, size: "xs", color: (data.statRemain > 0 ? "#10b981" : "#ef4444"), align: "end", flex: 1, weight: "bold" }]}
-      ]});
+      bodyContents.push({
+        type: "box", layout: "vertical", spacing: "xs", margin: "sm", contents: [
+          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "ลามาแล้ว", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statPast} วัน`, size: "xs", color: "#64748b", align: "end", flex: 1, weight: "bold" }]},
+          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "ลาครั้งนี้", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statReq} วัน`, size: "xs", color: "#3b82f6", align: "end", flex: 1, weight: "bold" }]},
+          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "รวมเป็น", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statTotal} วัน`, size: "xs", color: "#f59e0b", align: "end", flex: 1, weight: "bold" }]},
+          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "คงเหลือ", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statRemain} วัน`, size: "xs", color: (statRemain > 0 ? "#10b981" : "#ef4444"), align: "end", flex: 1, weight: "bold" }]}
+        ]
+      });
 
       bodyContents.push({ type: "separator", color: "#e5e7eb", margin: "lg" });
       bodyContents.push({ type: "text", text: timeFooterText, size: "xxs", color: "#94a3b8", margin: "md", wrap: true, align: "center" });
@@ -162,6 +234,7 @@
         }
       };
 
+      // 6. ส่งคำสั่งเรียก Share Target Picker ของแอป LINE
       if (liff.isApiAvailable("shareTargetPicker")) {
         try {
           const res = await liff.shareTargetPicker([flexMsg]);
@@ -172,6 +245,7 @@
              statusText.innerText = "คุณได้ยกเลิกการแชร์ข้อความ";
              statusText.style.color = "#94a3b8";
           }
+          // ลบองค์ประกอบ Progress
           progressBar.style.display = 'none';
           document.querySelector('.progress-container').style.display = 'none';
           percentText.style.display = 'none';
@@ -192,6 +266,7 @@
       statusText.style.color = '#ef4444';
     }
 
+    // เริ่มรันระบบ
     main();
   </script>
 </body>
