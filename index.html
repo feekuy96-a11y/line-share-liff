@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบแชร์ช้อมูลการใบลา</title>
+  <title>ระบบแชร์การ์ดใบลา (LINE LIFF)</title>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body { 
@@ -29,6 +29,7 @@
       max-width: 350px;
       width: 100%;
     }
+    /* 🌟 ปรับปรุง CSS: แทนที่ spinner ด้วยโครงสร้าง Progress Bar */
     .progress-container {
       width: 100%;
       height: 8px;
@@ -41,9 +42,9 @@
     .progress-bar {
       height: 100%;
       background-color: #10b981;
-      width: 0%; 
+      width: 0%; /* เริ่มต้นที่ 0% */
       border-radius: 4px;
-      transition: width 0.3s ease-out; 
+      transition: width 0.3s ease-out; /* เพิ่ม transition เพื่อความลื่นไหล */
     }
     .percent {
       font-size: 24px;
@@ -69,111 +70,112 @@
   </div>
 
   <script>
+    // 📌 ข้อมูลคอนฟิกูเรชันระบบแชร์ของคุณ
     const LIFF_ID = "2008126991-vMM9VdAj"; 
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyLI8zoe8eU72byxcsj2zRQjq-Td2EUK-WNJxCVBbAwDUX_CYyDPaptR0P4aZJrb7nb/exec";
 
+    // 🌟 องค์ประกอบ HTML ที่ต้องใช้
     const progressBar = document.getElementById('progress-bar');
     const percentText = document.getElementById('percent');
     const statusText = document.getElementById('status');
+    const loader = document.querySelector('.loader'); // ลบ element นี้ออก
 
+    // 🌟 ตัวแปรควบคุมการจำลอง Progress
     let progressInterval;
     let currentPercent = 0;
 
+    // 🌟 ฟังก์ชันจำลองความคืบหน้าโหลด (จาก 0 ถึง ~95%)
     function startProgressSimulation() {
-      clearInterval(progressInterval); 
+      clearInterval(progressInterval); // หยุดอันเก่าก่อน
       currentPercent = 0;
       percentText.innerText = "0%";
       progressBar.style.width = "0%";
 
       progressInterval = setInterval(() => {
-        if (currentPercent < 95) { 
-          currentPercent += (Math.random() * 2) + 1; 
-          if (currentPercent > 95) currentPercent = 95; 
+        if (currentPercent < 95) { // จำกัดความคืบหน้าไว้ที่ 95% ก่อนได้รับข้อมูลจริง
+          // เพิ่มเปอร์เซ็นต์ทีละน้อยๆ (Fake Progress)
+          currentPercent += (Math.random() * 2) + 1; // เพิ่มทีละ 1-3%
+          if (currentPercent > 95) currentPercent = 95; // ไม่ให้เกิน 95%
           percentText.innerText = `${Math.floor(currentPercent)}%`;
           progressBar.style.width = `${currentPercent}%`;
         }
-      }, 200); 
+      }, 200); // อัปเดตทุกๆ 200ms
     }
 
+    // 🌟 ฟังก์ชันเมื่อโหลดสำเร็จหรือเกิดข้อผิดพลาด (กระโดดไป 100% หรือหยุด)
     function finishProgress(isSuccess) {
-      clearInterval(progressInterval); 
+      clearInterval(progressInterval); // หยุดการจำลอง
       if (isSuccess) {
         percentText.innerText = "100%";
         progressBar.style.width = "100%";
-        percentText.style.color = "#10b981"; 
+        percentText.style.color = "#10b981"; // เปลี่ยนสีเป็นสีเขียว
       } else {
-        percentText.style.color = "#ef4444"; 
+        percentText.style.color = "#ef4444"; // เปลี่ยนสีเป็นสีแดง
       }
     }
 
     async function main() {
       try {
+        // 1. เริ่มต้นระบบ LIFF
         await liff.init({ liffId: LIFF_ID });
         
+        // 2. ตรวจสอบและบังคับล็อกอิน (กรณีเปิดผ่าน External Browser)
         if (!liff.isLoggedIn()) {
           liff.login({ redirectUri: window.location.href });
           return;
         }
 
+        // 3. แกะรหัสใบลา (leaveId) จาก URL
         const urlParams = new URLSearchParams(window.location.search);
         let leaveId = urlParams.get('leaveId');
         
+        // ดักจับกรณีที่ LINE แอบซ่อนพารามิเตอร์ไว้ใน liff.state หลังจากเปลี่ยนหน้าเข้าแอป
         if (!leaveId && urlParams.get('liff.state')) {
            const stateParams = new URLSearchParams(urlParams.get('liff.state').substring(1));
            leaveId = stateParams.get('leaveId') || stateParams.get('?leaveId');
         }
 
         if (!leaveId) {
-          finishProgress(false); 
+          finishProgress(false); // หยุด Progress
           showError("ไม่พบรหัสใบลา (leaveId) ในลิงก์ กรุณาตรวจสอบอีกครั้ง");
           return;
         }
 
         statusText.innerText = "กำลังประมวลผลคำขอ...";
+
+        // 🌟 เริ่มการจำลองเปอร์เซ็นต์โหลดทันที
         startProgressSimulation();
+
         statusText.innerText = "กำลังดึงข้อมูลใบลาจากระบบ...";
 
+        // 4. ยิง Fetch API ไปเรียกข้อมูลพนักงานจากหลังบ้าน Google Apps Script
         const response = await fetch(`${GAS_API_URL}?action=api_get_leave&leaveId=${leaveId}`);
         const result = await response.json();
         
         if (result.status === "success" && result.data) {
+          // 🌟 โหลดสำเร็จ: กระโดดไป 100%
           finishProgress(true);
           shareFlex(result.data);
         } else {
-          finishProgress(false); 
+          finishProgress(false); // โหลดล้มเหลว
           showError(result.message || "เกิดข้อผิดพลาด: ไม่สามารถดึงข้อมูลใบลาได้");
         }
 
       } catch (err) {
-        finishProgress(false); 
+        finishProgress(false); // เกิดข้อผิดพลาดร้ายแรง
         showError("เชื่อมต่อฐานข้อมูลล้มเหลว หรือเกิดข้อผิดพลาดในการรันระบบ");
+        console.error(err);
       }
     }
 
+    // 5. ประกอบโครงสร้าง Flex Message และเรียกหน้าต่าง Share Target Picker
     async function shareFlex(data) {
       statusText.innerText = "กำลังเปิดหน้าต่างเลือกแชทเพื่อส่งต่อ...";
       
+      // ตั้งค่าสีธีมตามสถานะใบลา
       let hc = data.status === 'อนุมัติ' ? "#10b981" : (data.status === 'ไม่อนุมัติ' ? "#ef4444" : (data.status === 'ยกเลิกแล้ว' ? "#64748b" : "#f59e0b"));
       let eventName = data.status === "รอพิจารณา" ? "ยื่นคำร้อง" : (data.status === "ยกเลิกแล้ว" ? "ยกเลิกคำร้อง" : "แจ้งผลการพิจารณา");
       
-      // 🌟 อัปเดต 4: จัดโครงสร้างการ์ดเหมือนระบบหลักเป๊ะๆ (เล่นสีสถิติและเวลา)
-      let statPast = data.statPast || 0;
-      let statReq = data.days || 0;
-      let statTotal = statPast + statReq;
-      let statRemain = data.statRemain || 0;
-
-      const formatThaiTime = (ts) => {
-        let d = ts ? new Date(ts.replace(" ", "T")) : new Date(); if(isNaN(d)) d = new Date();
-        const tM = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-        return `${d.getDate()} ${tM[d.getMonth()]} ${d.getFullYear()+543} เวลา ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} น.`;
-      };
-
-      let timeFooterText = "";
-      if (data.status === "รอพิจารณา") timeFooterText = `ยื่นคำขอเมื่อ: ${formatThaiTime(data.actionTime)}`;
-      else if (data.status === "อนุมัติ") timeFooterText = `อนุมัติคำขอเมื่อ: ${formatThaiTime(data.actionTime)}`;
-      else if (data.status === "ไม่อนุมัติ") timeFooterText = `ไม่อนุมัติคำขอเมื่อ: ${formatThaiTime(data.actionTime)}`;
-      else timeFooterText = `อัปเดตสถานะเมื่อ: ${formatThaiTime(data.actionTime)}`;
-
       let bodyContents = [
         { type: "text", text: "รายละเอียดการดำเนินการ", weight: "bold", size: "md", color: "#111827" },
         { type: "separator", color: "#e5e7eb", margin: "md" },
@@ -185,6 +187,7 @@
         ]}
       ];
 
+      // หากมีเหตุผลการไม่อนุมัติ ให้เพิ่มเข้าไปในการ์ดแชร์
       if (data.status === 'ไม่อนุมัติ' && data.rejectReason) {
         bodyContents[2].contents.push({
           type: "box", layout: "baseline", margin: "sm", contents: [
@@ -193,20 +196,6 @@
           ]
         });
       }
-
-      bodyContents.push({ type: "separator", color: "#e5e7eb", margin: "lg" });
-      bodyContents.push({ type: "text", text: "📊 สถิติการลา (ปีงบประมาณนี้)", weight: "bold", size: "xs", color: "#3b82f6", margin: "md" });
-      bodyContents.push({
-          type: "box", layout: "vertical", spacing: "xs", margin: "sm", contents: [
-            { type: "box", layout: "horizontal", contents: [{ type: "text", text: "ลามาแล้ว", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statPast} วัน`, size: "xs", color: "#64748b", align: "end", flex: 1, weight: "bold" }]},
-            { type: "box", layout: "horizontal", contents: [{ type: "text", text: "ลาครั้งนี้", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statReq} วัน`, size: "xs", color: "#3b82f6", align: "end", flex: 1, weight: "bold" }]},
-            { type: "box", layout: "horizontal", contents: [{ type: "text", text: "รวมเป็น", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statTotal} วัน`, size: "xs", color: "#f59e0b", align: "end", flex: 1, weight: "bold" }]},
-            { type: "box", layout: "horizontal", contents: [{ type: "text", text: "คงเหลือ", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statRemain} วัน`, size: "xs", color: (statRemain > 0 ? "#10b981" : "#ef4444"), align: "end", flex: 1, weight: "bold" }]}
-          ]
-      });
-
-      bodyContents.push({ type: "separator", color: "#e5e7eb", margin: "lg" });
-      bodyContents.push({ type: "text", text: timeFooterText, size: "xxs", color: "#94a3b8", margin: "md", wrap: true, align: "center" });
 
       const flexMsg = {
         type: "flex", 
@@ -219,6 +208,7 @@
         }
       };
 
+      // 6. ส่งคำสั่งเรียก Share Target Picker ของแอป LINE
       if (liff.isApiAvailable("shareTargetPicker")) {
         try {
           const res = await liff.shareTargetPicker([flexMsg]);
@@ -229,6 +219,7 @@
              statusText.innerText = "คุณได้ยกเลิกการแชร์ข้อความ";
              statusText.style.color = "#94a3b8";
           }
+          // ลบองค์ประกอบ Progress
           progressBar.style.display = 'none';
           document.querySelector('.progress-container').style.display = 'none';
           percentText.style.display = 'none';
@@ -243,12 +234,15 @@
     }
 
     function showError(msg) {
+      // ลบองค์ประกอบ Progress
       progressBar.style.display = 'none';
       document.querySelector('.progress-container').style.display = 'none';
+      
       statusText.innerText = msg;
       statusText.style.color = '#ef4444';
     }
 
+    // เริ่มรันระบบ
     main();
   </script>
 </body>
