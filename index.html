@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบแชร์</title>
+  <title>ระบบแชร์การ์ดใบลา (LINE LIFF)</title>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body { 
@@ -70,7 +70,7 @@
 
   <script>
     const LIFF_ID = "2008126991-vMM9VdAj"; 
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxdFNj4fS064JpWxviiYevrXdhJ3wT2CBWIWJq4psA_i4v0zW7PHdTn8Rv0DjqwK0-H/exec";
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwvNt6tcFBBjhgaUOUCSoHjourVj4akKxXFHQgBatfRM5bRF_Z9vKMJEwCfCsVPj78w/exec";
 
     const progressBar = document.getElementById('progress-bar');
     const percentText = document.getElementById('percent');
@@ -174,44 +174,40 @@
       else if (data.status === "ไม่อนุมัติ") timeFooterText = `ไม่อนุมัติคำขอเมื่อ: ${formatThaiTime(data.actionTime)}`;
       else timeFooterText = `อัปเดตสถานะเมื่อ: ${formatThaiTime(data.actionTime)}`;
 
-      const formatThaiTime = (ts) => {
-        let d = ts ? new Date(ts.replace(" ", "T")) : new Date(); if(isNaN(d)) d = new Date();
-        const tM = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-        return `${d.getDate()} ${tM[d.getMonth()]} ${d.getFullYear()+543} เวลา ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} น.`;
-      };
-
-      let timeFooterText = "";
-      if (data.status === "รอพิจารณา") timeFooterText = `ยื่นคำขอเมื่อ: ${formatThaiTime(data.actionTime)}`;
-      else if (data.status === "อนุมัติ") timeFooterText = `อนุมัติคำขอเมื่อ: ${formatThaiTime(data.actionTime)}`;
-      else if (data.status === "ไม่อนุมัติ") timeFooterText = `ไม่อนุมัติคำขอเมื่อ: ${formatThaiTime(data.actionTime)}`;
-      else timeFooterText = `อัปเดตสถานะเมื่อ: ${formatThaiTime(data.actionTime)}`;
-
       let bodyContents = [
         { type: "text", text: "รายละเอียดการดำเนินการ", weight: "bold", size: "md", color: "#111827" },
         { type: "separator", color: "#e5e7eb", margin: "md" },
         { type: "box", layout: "vertical", spacing: "sm", margin: "md", contents: [
             { type: "box", layout: "baseline", contents: [{ type: "text", text: "ผู้ขอลา", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.empName || "-"), weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
             { type: "box", layout: "baseline", contents: [{ type: "text", text: "ประเภท", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.type || "-"), weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
-            { type: "box", layout: "baseline", contents: [{ type: "text", text: "วันที่", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: `${data.start} - ${data.end} (${data.days || 0} วัน)`, weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
+            { type: "box", layout: "baseline", contents: [{ type: "text", text: "วันที่", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: `${data.start} - ${data.end}\n(${data.days || 0} วัน)`, weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
             { type: "box", layout: "baseline", contents: [{ type: "text", text: "เหตุผล", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.reason || "-"), color: "#1f2937", size: "sm", flex: 5, wrap: true }] }
         ]}
       ];
 
       if (data.status === 'ไม่อนุมัติ' && data.rejectReason) {
-        bodyContents.push({ type: "box", layout: "baseline", margin: "sm", contents: [{ type: "text", text: "หมายเหตุ", color: "#ef4444", size: "sm", flex: 2, weight: "bold" }, { type: "text", text: String(data.rejectReason), size: "sm", flex: 5, wrap: true, color: "#ef4444", weight: "bold" }] });
+        bodyContents[2].contents.push({
+          type: "box", layout: "baseline", margin: "sm", contents: [
+            { type: "text", text: "หมายเหตุ", color: "#ef4444", size: "sm", flex: 2, weight: "bold" },
+            { type: "text", text: String(data.rejectReason), size: "sm", flex: 5, wrap: true, color: "#ef4444", weight: "bold" }
+          ]
+        });
       }
 
       bodyContents.push({ type: "separator", color: "#e5e7eb", margin: "lg" });
       bodyContents.push({ type: "text", text: "📊 สถิติการลา (ปีงบประมาณนี้)", weight: "bold", size: "xs", color: "#3b82f6", margin: "md" });
-      bodyContents.push({ type: "box", layout: "vertical", spacing: "xs", margin: "sm", contents: [
-          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "ลามาแล้ว", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${data.statPast || 0} วัน`, size: "xs", color: "#64748b", align: "end", flex: 1, weight: "bold" }]},
-          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "ลาครั้งนี้", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${data.days || 0} วัน`, size: "xs", color: "#3b82f6", align: "end", flex: 1, weight: "bold" }]},
-          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "รวมเป็น", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${(data.statPast || 0) + (data.days || 0)} วัน`, size: "xs", color: "#f59e0b", align: "end", flex: 1, weight: "bold" }]},
-          { type: "box", layout: "horizontal", contents: [{ type: "text", text: "คงเหลือ", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${data.statRemain || 0} วัน`, size: "xs", color: (data.statRemain > 0 ? "#10b981" : "#ef4444"), align: "end", flex: 1, weight: "bold" }]}
-      ]});
+      bodyContents.push({
+          type: "box", layout: "vertical", spacing: "xs", margin: "sm", contents: [
+            { type: "box", layout: "horizontal", contents: [{ type: "text", text: "ลามาแล้ว", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statPast} วัน`, size: "xs", color: "#64748b", align: "end", flex: 1, weight: "bold" }]},
+            { type: "box", layout: "horizontal", contents: [{ type: "text", text: "ลาครั้งนี้", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statReq} วัน`, size: "xs", color: "#3b82f6", align: "end", flex: 1, weight: "bold" }]},
+            { type: "box", layout: "horizontal", contents: [{ type: "text", text: "รวมเป็น", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statTotal} วัน`, size: "xs", color: "#f59e0b", align: "end", flex: 1, weight: "bold" }]},
+            { type: "box", layout: "horizontal", contents: [{ type: "text", text: "คงเหลือ", size: "xs", color: "#64748b", flex: 2 }, { type: "text", text: `${statRemain} วัน`, size: "xs", color: (statRemain > 0 ? "#10b981" : "#ef4444"), align: "end", flex: 1, weight: "bold" }]}
+          ]
+      });
 
       bodyContents.push({ type: "separator", color: "#e5e7eb", margin: "lg" });
       bodyContents.push({ type: "text", text: timeFooterText, size: "xxs", color: "#94a3b8", margin: "md", wrap: true, align: "center" });
+
       const flexMsg = {
         type: "flex", 
         altText: `[${eventName}] สรุปการลางาน: ${data.empName} (${data.status})`,
