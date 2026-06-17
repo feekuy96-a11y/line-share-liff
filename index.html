@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Share Flex Message</title>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { background: #0f172a; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; margin: 0; text-align: center; }
+    .loader { border: 4px solid rgba(255,255,255,0.1); border-left-color: #10b981; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="loader" id="loader"></div>
+  <div id="status">กำลังเตรียมข้อมูล...</div>
+
+  <script>
+    // 📌 1. ใส่ LIFF ID ของคุณ
+    const LIFF_ID = "2008126991-vMM9VdAj"; 
+    // 📌 2. ใส่ลิงก์ Web App (GAS) ของคุณที่เพิ่ง Deploy มา
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyawZzYFJG3gEMF9Vl_jtY20UzY6PchnS-wCB3XDnNNReuaGJ8idagkcZtufxeMiDtk/exec";
+
+    async function main() {
+      await liff.init({ liffId: LIFF_ID });
+      
+      if (!liff.isLoggedIn()) {
+        liff.login({ redirectUri: window.location.href });
+        return;
+      }
+
+      // ดึง Parameter leaveId ที่ส่งมาจาก URL
+      const urlParams = new URLSearchParams(window.location.search);
+      let leaveId = urlParams.get('leaveId');
+      
+      // กรณี LINE ซ่อนพารามิเตอร์ไว้ใน liff.state
+      if (!leaveId && urlParams.get('liff.state')) {
+         const stateParams = new URLSearchParams(urlParams.get('liff.state').substring(1));
+         leaveId = stateParams.get('leaveId');
+      }
+
+      if (!leaveId) {
+        showError("ไม่พบรหัสใบลา"); return;
+      }
+
+      document.getElementById('status').innerText = "กำลังดึงข้อมูลใบลา...";
+
+      // วิ่งไปขอข้อมูลจาก Google Apps Script (ผ่าน API)
+      try {
+        const response = await fetch(`${GAS_API_URL}?action=api_get_leave&leaveId=${leaveId}`);
+        const result = await response.json();
+        
+        if (result.status === "success") {
+          shareFlex(result.data);
+        } else {
+          showError(result.message);
+        }
+      } catch (err) {
+        showError("เชื่อมต่อฐานข้อมูลล้มเหลว");
+      }
+    }
+
+    async function shareFlex(data) {
+      document.getElementById('status').innerText = "เปิดหน้าต่างแชร์...";
+      let hc = data.status === 'อนุมัติ' ? "#10b981" : (data.status === 'ไม่อนุมัติ' ? "#ef4444" : (data.status === 'ยกเลิกแล้ว' ? "#64748b" : "#f59e0b"));
+      let eventName = data.status === "รอพิจารณา" ? "ยื่นคำร้อง" : (data.status === "ยกเลิกแล้ว" ? "ยกเลิกคำร้อง" : "แจ้งผลการพิจารณา");
+      
+      let bodyContents = [
+        { type: "text", text: "รายละเอียดการดำเนินการ", weight: "bold", size: "md", color: "#111827" },
+        { type: "separator", color: "#e5e7eb", margin: "md" },
+        { type: "box", layout: "vertical", spacing: "sm", margin: "md", contents: [
+            { type: "box", layout: "baseline", contents: [{ type: "text", text: "ผู้ขอลา", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.empName || "-"), weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
+            { type: "box", layout: "baseline", contents: [{ type: "text", text: "ประเภท", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.type || "-"), weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
+            { type: "box", layout: "baseline", contents: [{ type: "text", text: "วันที่", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: `${data.start} - ${data.end}\n(${data.days || 0} วัน)`, weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
+            { type: "box", layout: "baseline", contents: [{ type: "text", text: "เหตุผล", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.reason || "-"), color: "#1f2937", size: "sm", flex: 5, wrap: true }] }
+        ]}
+      ];
+
+      const flexMsg = {
+        type: "flex", altText: `[${eventName}] ${data.status}`,
+        contents: {
+          type: "bubble", size: "mega",
+          header: { type: "box", layout: "vertical", backgroundColor: hc, contents: [{ type: "text", text: eventName, color: "#ffffff", size: "xs", weight: "bold" }, { type: "text", text: data.status, weight: "bold", color: "#ffffff", size: "xl", margin: "sm" }] },
+          body: { type: "box", layout: "vertical", contents: bodyContents },
+          footer: { type: "box", layout: "vertical", spacing: "sm", contents: [{ type: "button", style: "primary", color: "#ef4444", height: "sm", action: { type: "uri", label: "เปิดระบบ", uri: data.appUrl } }] }
+        }
+      };
+
+      if (liff.isApiAvailable("shareTargetPicker")) {
+        try {
+          const res = await liff.shareTargetPicker([flexMsg]);
+          if(res) {
+             document.getElementById('status').innerText = "แชร์สำเร็จ!";
+             document.getElementById('status').style.color = "#10b981";
+          } else {
+             document.getElementById('status').innerText = "ยกเลิกการแชร์";
+          }
+          document.getElementById('loader').style.display = 'none';
+          setTimeout(() => liff.closeWindow(), 1500);
+        } catch (err) { showError(err); }
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('status').innerText = msg;
+      document.getElementById('status').style.color = '#ef4444';
+    }
+
+    main();
+  </script>
+</body>
+</html>
