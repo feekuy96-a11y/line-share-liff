@@ -11,7 +11,7 @@
     .progress-container { width: 100%; height: 8px; background-color: rgba(255, 255, 255, 0.1); border-radius: 4px; margin-bottom: 10px; overflow: hidden; position: relative; }
     .progress-bar { height: 100%; background-color: #10b981; width: 0%; border-radius: 4px; transition: width 0.3s ease-out; }
     .percent { font-size: 24px; font-weight: bold; color: #ffffff; margin-bottom: 20px; }
-    #status { font-size: 16px; color: #cbd5e1; line-height: 1.5; }
+    #status { font-size: 16px; color: #cbd5e1; line-height: 1.5; word-wrap: break-word; }
   </style>
 </head>
 <body>
@@ -54,4 +54,161 @@
     function finishProgress(isSuccess) {
       clearInterval(progressInterval); 
       if (isSuccess) {
-        percentText.innerText =
+        percentText.innerText = "100%";
+        progressBar.style.width = "100%";
+        percentText.style.color = "#10b981"; 
+      } else {
+        percentText.style.color = "#ef4444"; 
+      }
+    }
+
+    async function main() {
+      try {
+        startProgressSimulation();
+        statusText.innerText = "กำลังเชื่อมต่อระบบ LINE...";
+        
+        await liff.init({ liffId: LIFF_ID });
+        
+        if (!liff.isLoggedIn()) {
+          clearInterval(progressInterval);
+          document.getElementById('percent').style.display = 'none';
+          document.getElementById('prog-cont').style.display = 'none';
+          
+          statusText.innerHTML = `
+            <div style="margin-bottom: 15px; color: #f8fafc; font-weight: bold;">จำเป็นต้องยืนยันตัวตน</div>
+            <button onclick="liff.login({ redirectUri: window.location.href })" style="background: #06c755; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3);">
+              เข้าสู่ระบบด้วย LINE
+            </button>
+            <div style="color: #94a3b8; font-size: 13px; margin-top: 15px;">*กรุณาเปิดผ่านแอป LINE บนมือถือ เพื่อแชร์การ์ด</div>
+          `;
+          return;
+        }
+
+        statusText.innerText = "กำลังแกะรหัสผ่านแอป...";
+
+        // 🚀 ระบบแกะรหัสขั้นสูง (ดักจับทุกการเข้ารหัสของ LINE บนมือถือ)
+        let leaveId = null;
+        let urlStr = window.location.href;
+        try { urlStr = decodeURIComponent(window.location.href); } catch(e) {}
+        
+        const match = urlStr.match(/[?&]leaveId=([^&#]+)/);
+        if (match) {
+            leaveId = match[1];
+        }
+
+        // ตรวจสอบความถูกต้องของรหัส
+        if (!leaveId || leaveId.length < 5) {
+          finishProgress(false); 
+          // แสดงลิงก์ให้เห็นชัดๆ เผื่อเกิดข้อผิดพลาดจะได้แก้ถูกจุด
+          showError("ไม่พบรหัสใบลาในลิงก์: " + window.location.href);
+          return;
+        }
+
+        statusText.innerText = "กำลังดึงข้อมูลใบลาจากระบบ...";
+
+        const response = await fetch(`${GAS_API_URL}?action=api_get_leave&leaveId=${leaveId}`);
+        const result = await response.json();
+        
+        if (result.status === "success" && result.data) {
+          finishProgress(true);
+          shareFlex(result.data);
+        } else {
+          finishProgress(false); 
+          showError(result.message || "เกิดข้อผิดพลาด: ไม่สามารถดึงข้อมูลได้");
+        }
+
+      } catch (err) {
+        finishProgress(false); 
+        showError("การเชื่อมต่อล้มเหลว: " + err.message);
+      }
+    }
+
+    async function shareFlex(data) {
+      statusText.innerText = "กำลังสร้างหน้าต่างแชร์...";
+      
+      let hc = data.status === 'อนุมัติ' ? "#10b981" : (data.status === 'ไม่อนุมัติ' ? "#ef4444" : (data.status === 'ยกเลิกแล้ว' ? "#64748b" : "#f59e0b"));
+      let eventName = data.status === "รอพิจารณา" ? "ยื่นคำร้อง" : (data.status === "ยกเลิกแล้ว" ? "ยกเลิกคำร้อง" : "แจ้งผลการพิจารณา");
+
+      const formatThaiTime = (ts) => {
+        let d = ts ? new Date(ts.replace(" ", "T")) : new Date(); if(isNaN(d)) d = new Date();
+        const tM = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+        return `${d.getDate()} ${tM[d.getMonth()]} ${d.getFullYear()+543} เวลา ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} น.`;
+      };
+
+      let timeFooterText = "";
+      let actionTimeStr = data.actionTime || "";
+      if (data.status === "รอพิจารณา") timeFooterText = `ยื่นคำขอเมื่อ: ${formatThaiTime(actionTimeStr)}`;
+      else if (data.status === "อนุมัติ") timeFooterText = `อนุมัติคำขอเมื่อ: ${formatThaiTime(actionTimeStr)}`;
+      else if (data.status === "ไม่อนุมัติ") timeFooterText = `ไม่อนุมัติคำขอเมื่อ: ${formatThaiTime(actionTimeStr)}`;
+      else timeFooterText = `อัปเดตสถานะเมื่อ: ${formatThaiTime(actionTimeStr)}`;
+
+      // 🌟 สร้างโครงสร้างการ์ดแบบปลอดภัย 100% ตามมาตรฐาน LINE
+      let innerContents = [
+        { type: "box", layout: "baseline", contents: [{ type: "text", text: "ผู้ขอลา", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.empName || "-"), weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
+        { type: "box", layout: "baseline", contents: [{ type: "text", text: "ประเภท", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.type || "-"), weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
+        { type: "box", layout: "baseline", contents: [{ type: "text", text: "วันที่", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: `${data.start} - ${data.end}`, weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
+        { type: "box", layout: "baseline", contents: [{ type: "text", text: "จำนวนวัน", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: `${data.days || 0} วัน`, weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
+        { type: "box", layout: "baseline", contents: [{ type: "text", text: "เหตุผล", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.reason || "-"), color: "#1f2937", size: "sm", flex: 5, wrap: true }] }
+      ];
+
+      if (data.status === 'ไม่อนุมัติ' && data.rejectReason) {
+        innerContents.push({
+          type: "box", layout: "baseline", margin: "sm", contents: [
+            { type: "text", text: "หมายเหตุ", color: "#ef4444", size: "sm", flex: 2, weight: "bold" },
+            { type: "text", text: String(data.rejectReason), size: "sm", flex: 5, wrap: true, color: "#ef4444", weight: "bold" }
+          ]
+        });
+      }
+
+      let bodyContents = [
+        { type: "text", text: "รายละเอียดการดำเนินการ", weight: "bold", size: "md", color: "#111827" },
+        { type: "separator", color: "#e5e7eb", margin: "md" },
+        { type: "box", layout: "vertical", spacing: "sm", margin: "md", contents: innerContents },
+        { type: "separator", color: "#e5e7eb", margin: "lg" },
+        { type: "text", text: timeFooterText, size: "xxs", color: "#94a3b8", margin: "md", wrap: true, align: "center" }
+      ];
+
+      const flexMsg = {
+        type: "flex", 
+        altText: `[${eventName}] สรุปการลางาน: ${data.empName} (${data.status})`,
+        contents: {
+          type: "bubble", size: "mega",
+          header: { type: "box", layout: "vertical", backgroundColor: hc, contents: [{ type: "text", text: eventName, color: "#ffffff", size: "xs", weight: "bold" }, { type: "text", text: data.status, weight: "bold", color: "#ffffff", size: "xl", margin: "sm" }] },
+          body: { type: "box", layout: "vertical", contents: bodyContents }
+        }
+      };
+
+      if (liff.isApiAvailable("shareTargetPicker")) {
+        try {
+          const res = await liff.shareTargetPicker([flexMsg]);
+          if (res) {
+             statusText.innerText = "🚀 แชร์ข้อมูลสำเร็จเรียบร้อยแล้ว!";
+             statusText.style.color = "#10b981";
+          } else {
+             statusText.innerText = "คุณได้ยกเลิกการแชร์ข้อความ";
+             statusText.style.color = "#94a3b8";
+          }
+          
+          document.getElementById('percent').style.display = 'none';
+          document.getElementById('prog-cont').style.display = 'none';
+          
+          setTimeout(() => liff.closeWindow(), 1800);
+        } catch (err) { 
+          showError("ข้อผิดพลาดจาก LINE: " + (err.message || JSON.stringify(err))); 
+        }
+      } else {
+        showError("⚠️ ฟังก์ชันแชร์ไม่พร้อมใช้งานบนหน้าจอนี้! กรุณาเปิดผ่านแอป LINE บนมือถือเท่านั้น");
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('percent').style.display = 'none';
+      document.getElementById('prog-cont').style.display = 'none';
+      statusText.innerText = msg;
+      statusText.style.color = '#ef4444';
+    }
+
+    main();
+  </script>
+</body>
+</html>
