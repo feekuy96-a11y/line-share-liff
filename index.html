@@ -21,7 +21,7 @@
     <div class="progress-container">
       <div class="progress-bar" id="progress-bar"></div>
     </div>
-    <div id="status">กำลังเตรียมระบบ...</div>
+    <div id="status">กำลังเริ่มต้นเชื่อมต่อเซิร์ฟเวอร์ LINE...</div>
   </div>
 
   <script>
@@ -71,28 +71,17 @@
           return;
         }
 
-        // 🚀 แกะ URL ค้นหารหัสใบลา
-        let leaveId = null;
-        const urlStr = window.location.href;
         const urlParams = new URLSearchParams(window.location.search);
+        let leaveId = urlParams.get('leaveId');
         
-        let liffState = urlParams.get('liff.state');
-        if (liffState) {
-            if (liffState.startsWith('?')) liffState = liffState.substring(1);
-            const stateParams = new URLSearchParams(liffState);
-            leaveId = stateParams.get('leaveId');
-        }
-        
-        if (!leaveId) leaveId = urlParams.get('leaveId');
-        
-        if (!leaveId) {
-            const match = urlStr.match(/[?&]leaveId=([^&]+)/);
-            if (match) leaveId = match[1];
+        if (!leaveId && urlParams.get('liff.state')) {
+           const stateParams = new URLSearchParams(urlParams.get('liff.state').substring(1));
+           leaveId = stateParams.get('leaveId') || stateParams.get('?leaveId');
         }
 
         if (!leaveId) {
           finishProgress(false); 
-          showError("ไม่พบรหัสใบลาในลิงก์! (โปรดกดเข้าผ่านปุ่ม Share ในแอป LINE เท่านั้น)");
+          showError("ไม่พบรหัสใบลา (leaveId) ในลิงก์ กรุณาตรวจสอบอีกครั้ง");
           return;
         }
 
@@ -123,7 +112,8 @@
       
       let hc = data.status === 'อนุมัติ' ? "#10b981" : (data.status === 'ไม่อนุมัติ' ? "#ef4444" : (data.status === 'ยกเลิกแล้ว' ? "#64748b" : "#f59e0b"));
       let eventName = data.status === "รอพิจารณา" ? "ยื่นคำร้อง" : (data.status === "ยกเลิกแล้ว" ? "ยกเลิกคำร้อง" : "แจ้งผลการพิจารณา");
-
+      
+      // 🌟 คำนวณและฟอร์แมตเวลา
       const formatThaiTime = (ts) => {
         let d = ts ? new Date(ts.replace(" ", "T")) : new Date(); if(isNaN(d)) d = new Date();
         const tM = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
@@ -137,17 +127,19 @@
       else if (data.status === "ไม่อนุมัติ") timeFooterText = `ไม่อนุมัติคำขอเมื่อ: ${formatThaiTime(actionTimeStr)}`;
       else timeFooterText = `อัปเดตสถานะเมื่อ: ${formatThaiTime(actionTimeStr)}`;
 
+      // 🌟 สร้างโครงสร้างการ์ด (ไม่มีสถิติ)
       let bodyContents = [
         { type: "text", text: "รายละเอียดการดำเนินการ", weight: "bold", size: "md", color: "#111827" },
         { type: "separator", color: "#e5e7eb", margin: "md" },
         { type: "box", layout: "vertical", spacing: "sm", margin: "md", contents: [
             { type: "box", layout: "baseline", contents: [{ type: "text", text: "ผู้ขอลา", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.empName || "-"), weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
             { type: "box", layout: "baseline", contents: [{ type: "text", text: "ประเภท", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.type || "-"), weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
-            { type: "box", layout: "baseline", contents: [{ type: "text", text: "วันที่", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: `${data.start} - ${data.end}\n(${data.days || 0} วัน)`, weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
+            { type: "box", layout: "baseline", contents: [{ type: "text", text: "วันที่", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: `${data.start} - ${data.end} (${data.days || 0} วัน)`, weight: "bold", color: "#1f2937", size: "sm", flex: 5, wrap: true }] },
             { type: "box", layout: "baseline", contents: [{ type: "text", text: "เหตุผล", color: "#6b7280", size: "sm", flex: 2 }, { type: "text", text: String(data.reason || "-"), color: "#1f2937", size: "sm", flex: 5, wrap: true }] }
         ]}
       ];
 
+      // หากมีเหตุผลการไม่อนุมัติ
       if (data.status === 'ไม่อนุมัติ' && data.rejectReason) {
         bodyContents.push({
           type: "box", layout: "baseline", margin: "sm", contents: [
@@ -157,7 +149,7 @@
         });
       }
 
-      // 🌟 นำข้อมูลบล็อกสถิติออกทั้งหมด แล้วแสดงเฉพาะเวลาอัปเดตสถานะ
+      // 🌟 ใส่เวลาอัปเดตสถานะไว้ล่างสุด
       bodyContents.push({ type: "separator", color: "#e5e7eb", margin: "lg" });
       bodyContents.push({ type: "text", text: timeFooterText, size: "xxs", color: "#94a3b8", margin: "md", wrap: true, align: "center" });
 
@@ -168,7 +160,7 @@
           type: "bubble", size: "mega",
           header: { type: "box", layout: "vertical", backgroundColor: hc, contents: [{ type: "text", text: eventName, color: "#ffffff", size: "xs", weight: "bold" }, { type: "text", text: data.status, weight: "bold", color: "#ffffff", size: "xl", margin: "sm" }] },
           body: { type: "box", layout: "vertical", contents: bodyContents }
-          // 🌟 นำ Footer ปุ่ม "เข้าสู่ระบบเพื่อตรวจสอบ" ออกแล้ว
+          // 🌟 (นำบล็อก footer ปุ่มกดออกทั้งหมดตามความต้องการ)
         }
       };
 
@@ -191,4 +183,18 @@
           showError("เกิดข้อผิดพลาดขณะส่งข้อความแชร์: " + err); 
         }
       } else {
-        showError("ฟังก์ชันแชร์ไม่พร้อมใช้งานบนหน้าจอน
+        showError("ฟังก์ชันแชร์ไม่พร้อมใช้งานบนหน้าจอนี้ (โปรดเปิดใช้งานผ่านสมาร์ตโฟน)");
+      }
+    }
+
+    function showError(msg) {
+      progressBar.style.display = 'none';
+      document.querySelector('.progress-container').style.display = 'none';
+      statusText.innerText = msg;
+      statusText.style.color = '#ef4444';
+    }
+
+    main();
+  </script>
+</body>
+</html>
